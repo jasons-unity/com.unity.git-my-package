@@ -12,19 +12,19 @@ using Object = UnityEngine.Object;
 
 public class ProjectContextualMenu : EditorWindow
 {
-    static string PATH = Environment.GetEnvironmentVariable("PATH");
+    private static readonly string Path = Environment.GetEnvironmentVariable("PATH");
     
-    private string branchName = "";
-    private static PackageManifest packageJson;
-    private static bool cloned = false;
-    private static ProjectContextualMenu window;
+    private string _branchName = "";
+    private static PackageManifest _packageJson;
+    private static bool _cloned = false;
+    private static ProjectContextualMenu _window;
     
     [MenuItem("Assets/Edit Package")]
     public static void EditPackage()
     {
-        Object[] selectedAsset = Selection.GetFiltered (typeof(Object), SelectionMode.TopLevel);
+        var selectedAsset = Selection.GetFiltered (typeof(Object), SelectionMode.TopLevel);
         var packageName = "";
-        foreach(Object obj in selectedAsset)
+        foreach(var obj in selectedAsset)
         {
             packageName = obj.name;
         }
@@ -35,43 +35,38 @@ public class ProjectContextualMenu : EditorWindow
             return;
         }
 
-        packageJson = ReadPackageManifest(packageName);
+        _packageJson = ReadPackageManifest(packageName);
 
-        ClonePackage(packageJson);
-        window = (ProjectContextualMenu)EditorWindow.GetWindow(typeof(ProjectContextualMenu));
-        window.Show();
+        ClonePackage(_packageJson);
+        _window = (ProjectContextualMenu)EditorWindow.GetWindow(typeof(ProjectContextualMenu));
+        _window.Show();
         
 
     }
-    
-    void OnGUI()
+
+    private void OnGUI()
     {
-        if (cloned)
+        if (!_cloned) return;
+        _branchName = EditorGUILayout.TextField("Choose a branch name: ", _branchName);
+
+        if (GUILayout.Button("Create new branch"))
         {
-            branchName = EditorGUILayout.TextField("Choose a branch name: ", branchName);
-
-            if (GUILayout.Button("Create new branch"))
-            {
-                Debug.Log("Branch : " + branchName);
-                CheckoutRevision();
-            }
-
-            if (GUILayout.Button("Abort"))
-            {
-                cloned = false;
-                window.Close();
-            }
+            Debug.Log("Branch : " + _branchName);
+            CheckoutRevision();
         }
+
+        if (!GUILayout.Button("Abort")) return;
+        _cloned = false;
+        _window.Close();
     }
 
-    static bool UseEmbeddedPackageVersion()
+    private static bool UseEmbeddedPackageVersion()
     {
-        var packageSourceDir =
-            Directory.CreateDirectory(Directory.GetCurrentDirectory() + Path.DirectorySeparatorChar +
-                                      "PackageSource");
-        var addQuickSearchRequest = UnityEditor.PackageManager.Client.Add( "file:../PackageSource/" + packageJson.name);
-        if (!WaitForRequest(addQuickSearchRequest, $"Installing {packageJson.name}..."))
-            Debug.LogError($"Failed to install {packageJson.name}");
+        var packageSourceDir = Directory.GetCurrentDirectory() + System.IO.Path.DirectorySeparatorChar + "PackageSource";
+        var addQuickSearchRequest = UnityEditor.PackageManager.Client.Add( "file:../PackageSource/" + _packageJson.name);
+        while (!addQuickSearchRequest.IsCompleted)
+            System.Threading.Thread.Sleep(10);
+        AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
         return true;
     }
     
@@ -88,82 +83,82 @@ public class ProjectContextualMenu : EditorWindow
         return request.Status == UnityEditor.PackageManager.StatusCode.Success && request.Result != null;
     }
 
-    bool CheckoutRevision()
+    private bool CheckoutRevision()
     {
-        
-        var packageSourceDir =
-            Directory.CreateDirectory(Directory.GetCurrentDirectory() + Path.DirectorySeparatorChar +
-                                      "PackageSource");
-        Directory.SetCurrentDirectory(packageSourceDir.ToString() + Path.DirectorySeparatorChar + packageJson.name);
-        ProcessStartInfo start = new ProcessStartInfo();
-        start.EnvironmentVariables["PATH"] = "/usr/local/bin:" + PATH;
+        var currentDir = Directory.GetCurrentDirectory();
+        var packageSourceDir =Directory.GetCurrentDirectory() + System.IO.Path.DirectorySeparatorChar + "PackageSource";
+        Directory.SetCurrentDirectory(packageSourceDir.ToString() + System.IO.Path.DirectorySeparatorChar + _packageJson.name);
+        var start = new ProcessStartInfo();
+        start.EnvironmentVariables["PATH"] = "/usr/local/bin:" + Path;
         start.FileName = @"git";
         start.UseShellExecute = false;
         start.RedirectStandardOutput = true;
-        var sshURL = packageJson.repository.url.Replace("https://", "git@").Replace(".com/", ".com:");
+        var sshUrl = _packageJson.repository.url.Replace("https://", "git@").Replace(".com/", ".com:");
         
-        start.Arguments = "checkout -b "+branchName+ " "+packageJson.repository.revision;
+        start.Arguments = "checkout -b "+_branchName+ " "+_packageJson.repository.revision;
 
-        using (Process process = Process.Start(start))
+        using (var process = Process.Start(start))
         {
-            using (StreamReader reader = process.StandardOutput)
-            {
-                string result = reader.ReadToEnd();
-                Console.Write(result);
+            if (process != null)
+                using (var reader = process.StandardOutput)
+                {
+                    var result = reader.ReadToEnd();
+                    Console.Write(result);
+                }
 
-            }
             Debug.Log("Successfully clone package");
-            cloned = false;
-            window.Close();
+            Directory.SetCurrentDirectory(currentDir);
+            _cloned = false;
+            _window.Close();
         }
         UseEmbeddedPackageVersion();
         return true;
     }
-    
 
-    static bool ClonePackage(PackageManifest packageJson)
+
+    private static bool ClonePackage(PackageManifest packageJson)
     {
 
-        ProcessStartInfo start = new ProcessStartInfo();
-        start.EnvironmentVariables["PATH"] = "/usr/local/bin:" + PATH;
+        var start = new ProcessStartInfo();
+        start.EnvironmentVariables["PATH"] = "/usr/local/bin:" + Path;
         start.FileName = @"git";
         start.UseShellExecute = false;
         start.RedirectStandardOutput = true;
         start.RedirectStandardError = true;
-        var sshURL = packageJson.repository.url.Replace("https://", "git@").Replace(".com/", ".com:");
+        var sshUrl = packageJson.repository.url.Replace("https://", "git@").Replace(".com/", ".com:");
         var packageSourceDir =
-            Directory.CreateDirectory(Directory.GetCurrentDirectory() + Path.DirectorySeparatorChar +
+            Directory.CreateDirectory(Directory.GetCurrentDirectory() + System.IO.Path.DirectorySeparatorChar +
                                                 "PackageSource");
-        var cloneDir = packageSourceDir.ToString() + Path.DirectorySeparatorChar + packageJson.name;
-        start.Arguments = "clone --recursive " + sshURL + " " + cloneDir;
+        var cloneDir = packageSourceDir.ToString() + System.IO.Path.DirectorySeparatorChar + packageJson.name;
+        start.Arguments = "clone --recursive " + sshUrl + " " + cloneDir;
 
-        using (Process process = Process.Start(start))
+        using (var process = Process.Start(start))
         {
-            using (StreamReader reader = process.StandardError)
-            {
-                string result = reader.ReadToEnd();
-                Console.Write(result);
-                if (!Directory.EnumerateFileSystemEntries(cloneDir).Any())
+            if (process != null)
+                using (var reader = process.StandardError)
                 {
-                    Debug.Log("Did not successfully clone package : " + result);
-                    return false;
+                    var result = reader.ReadToEnd();
+                    Console.Write(result);
+                    if (!Directory.EnumerateFileSystemEntries(cloneDir).Any())
+                    {
+                        Debug.Log("Did not successfully clone package : " + result);
+                        return false;
+                    }
                 }
-            }
+
             Debug.Log("Successfully clone package");
-            cloned = true;
+            _cloned = true;
         }
         return true;
     }
-    
-   
- 
 
-    static PackageManifest ReadPackageManifest(string packageName)
+
+    private static PackageManifest ReadPackageManifest(string packageName)
     {
-        var pathToPackage = Directory.GetCurrentDirectory() + Path.DirectorySeparatorChar + "Packages" +
-                            Path.DirectorySeparatorChar + packageName;
+        var pathToPackage = Directory.GetCurrentDirectory() + System.IO.Path.DirectorySeparatorChar + "Packages" +
+                            System.IO.Path.DirectorySeparatorChar + packageName;
 
-        var path = pathToPackage + Path.DirectorySeparatorChar + "package.json";
+        var path = pathToPackage + System.IO.Path.DirectorySeparatorChar + "package.json";
         var jsonString = File.ReadAllText(path);
         var packageJson = JsonUtility.FromJson<PackageManifest>(jsonString);
         return packageJson;
