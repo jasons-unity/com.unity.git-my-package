@@ -1,16 +1,20 @@
 using System;
 
-[Serializable]
-public class PackageManifest
+namespace GitMyPackage
 {
-    public string name;
-    public Repository repository;
-}
+    
+    [Serializable]
+    public class PackageManifest
+    {
+        public string name;
+        public Repository repository;
+    }
 
-[Serializable]
-public class Repository
-{
-    public string url;
-    public string revision;
+    [Serializable]
+    public class Repository
+    {
+        public string url;
+        public string revision;
 
+    }
 }
