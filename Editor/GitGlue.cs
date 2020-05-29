@@ -13,9 +13,7 @@ namespace GitMyPackage
     {
         private static readonly string PackageSourceDir =
             Directory.GetCurrentDirectory() + Path.DirectorySeparatorChar + "PackageSource";
-
         private static readonly string CurrentDir = Directory.GetCurrentDirectory();
-
         private static string _folderName;
 
         public static void EmbedPackage(PackageManifest packageJson)
@@ -30,9 +28,7 @@ namespace GitMyPackage
                                addPackageRequest.Error.message);
                 try
                 {
-                    Directory.Delete(
-                        Directory.GetCurrentDirectory() + Path.DirectorySeparatorChar + "PackageSource" +
-                        Path.DirectorySeparatorChar + _folderName, true);
+                    Directory.Delete(GetEmbeddedPackagePath(packageJson), true);
                 }
                 catch (Exception e)
                 {
@@ -46,17 +42,12 @@ namespace GitMyPackage
 
         public static bool CheckoutRevision(PackageManifest packageJson, string branchName)
         {
-
             var gitProcess = GetGitProcess();
-
-            Directory.SetCurrentDirectory(PackageSourceDir + Path.DirectorySeparatorChar + _folderName);
-
+            Directory.SetCurrentDirectory(GetEmbeddedPackagePath(packageJson));
             gitProcess.Arguments = "checkout -b " + branchName + " " + packageJson.repository.revision;
-
-            RunGitProcess(gitProcess, packageJson);
-            EditorWindow.GetWindow(typeof(ProjectContextualMenu)).Close();
-
-            return true;
+            var result = RunGitProcess(gitProcess);
+            
+            return result != "";
         }
 
 
@@ -67,13 +58,13 @@ namespace GitMyPackage
             Directory.CreateDirectory(PackageSourceDir);
             Directory.SetCurrentDirectory(PackageSourceDir);
 
-
             var sshUrl = packageJson.repository.url.Replace("https://", "git@").Replace(".com/", ".com:");
             gitProcess.Arguments = "clone --recursive " + sshUrl;
-
-            RunGitProcess(gitProcess, packageJson);
-
-            return true;
+            
+            var result = RunGitProcess(gitProcess);
+            if (Directory.EnumerateFileSystemEntries(GetEmbeddedPackagePath(packageJson)).Any()) return true;
+            Debug.LogError("Did not successfully clone package : " + result);
+            return false;
         }
 
         private static ProcessStartInfo GetGitProcess()
@@ -88,29 +79,66 @@ namespace GitMyPackage
             return gitProcess;
         }
 
-        private static void RunGitProcess(ProcessStartInfo gitProcess, PackageManifest packageJson)
+        private static string GetEmbeddedPackagePath(PackageManifest packageJson)
         {
+            _folderName = packageJson.repository.url.Split('/').Last().Replace(".git","");
+            return PackageSourceDir + Path.DirectorySeparatorChar + _folderName;
+        }
+
+        private static string RunGitProcess(ProcessStartInfo gitProcess)
+        {
+            var result = "";
             using (var process = Process.Start(gitProcess))
             {
                 if (process != null)
+                {
                     using (var reader = process.StandardError)
                     {
-                        var result = reader.ReadToEnd();
-                        Console.Write(result);
+                        result = reader.ReadToEnd();
 
-                        _folderName = packageJson.repository.url.Split('/').Last().Replace(".git","");
-                        
-                        if (!Directory
-                            .EnumerateFileSystemEntries(PackageSourceDir + Path.DirectorySeparatorChar +
-                                                        _folderName).Any())
-                        {
-                            Debug.LogError("Did not successfully clone package : " + result);
-                        }
                     }
+                    if (process.ExitCode != 0)
+                    {
+                        Debug.Log(process.StandardError.CurrentEncoding);
 
-                Debug.Log("Successfully clone package");
+                    }
+                }
                 Directory.SetCurrentDirectory(CurrentDir);
+                return result;
             }
+        }
+
+        public static bool CommitChange(string comment, string pathToPackage)
+        {
+            var gitProcess = GetGitProcess();
+
+            Directory.SetCurrentDirectory(pathToPackage);
+
+            gitProcess.Arguments = "add . ";
+            var addStatus = RunGitProcess(gitProcess);
+            if (addStatus == "") return false;
+            
+            gitProcess.Arguments = $"commit -m \"{comment}\"";
+            var commitStatus = RunGitProcess(gitProcess);
+            if (commitStatus == "") return false;
+            
+            gitProcess.Arguments = $"push";
+            var pushStatus = RunGitProcess(gitProcess);
+
+            return pushStatus != "";
+
+        }
+
+        public static bool PushBranch(PackageManifest packageJson, string branchName)
+        {
+            var gitProcess = GetGitProcess();
+            Directory.SetCurrentDirectory(GetEmbeddedPackagePath(packageJson));
+            
+            gitProcess.Arguments = $"push -u origin {branchName}";
+
+            var addStatus = RunGitProcess(gitProcess);
+
+            return addStatus != "";
         }
     }
 }
