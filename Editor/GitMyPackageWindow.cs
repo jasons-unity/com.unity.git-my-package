@@ -15,6 +15,7 @@ namespace GitMyPackage
         public bool commit;
         private string _comment;
         public string pathToPackage;
+        private bool done;
 
         private void OnGUI()
         {
@@ -31,11 +32,15 @@ namespace GitMyPackage
 
                     GitGlue.EmbedPackage(packageJson);
                     cloned = false;
+                    Close();
                 }
 
-                if (!GUILayout.Button("Abort")) return;
-
-                cloned = false;
+                if (GUILayout.Button("Abort"))
+                {
+                    ProjectContextualMenu.RemoveCheckout(packageJson);
+                    cloned = false;
+                    Close();
+                };
             }
 
             if (commit)
@@ -44,15 +49,19 @@ namespace GitMyPackage
                 if (GUILayout.Button("Commit"))
                 {
                     GitGlue.CommitChange(_comment, pathToPackage);
-                    //TODO: need to push
+                    GitGlue.PushChange(pathToPackage);
+                    commit = false;
+                    Close();
                 }
-                if (!GUILayout.Button("Abort")) return;
 
-                commit = false;
+                if (GUILayout.Button("Abort"))
+                {
+                    commit = false;
+                    Close();
+                };
+
+
             }
-            
-            this.Close();
-            //TODO: close window not working for commit
         }
     }
 }

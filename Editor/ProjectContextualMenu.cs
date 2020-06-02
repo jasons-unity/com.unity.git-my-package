@@ -1,8 +1,12 @@
-﻿using System.IO;
+﻿using System;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEditor.PackageManager;
+using Debug = UnityEngine.Debug;
+using Object = UnityEngine.Object;
 
 namespace GitMyPackage
 {
@@ -15,7 +19,9 @@ namespace GitMyPackage
         [MenuItem("Assets/GitMyPackage/Edit Package")]
         public static void EditPackage()
         {
-            _packageJson = ReadPackageManifest(GetPackageName());
+            var packageName = GetPackageName();
+            if (packageName == "") return;
+            _packageJson = ReadPackageManifest(packageName);
             
             _cloned = GitGlue.ClonePackage(_packageJson);
             _window = GetWindow<GitMyPackageWindow>();
@@ -29,7 +35,8 @@ namespace GitMyPackage
         {
             var packageName = GetPackageName();
 
-            var relativePath = GetEmbeddedPackagePath(packageName);
+            var relativePath = GetEmbeddedPackagePathFromManifest(packageName);
+            if (relativePath == "") return;
             var pathToPackage = Directory.GetCurrentDirectory() + relativePath;
             _window = GetWindow<GitMyPackageWindow>();
             _window.commit = true;
@@ -37,11 +44,24 @@ namespace GitMyPackage
             _window.Show();
         }
 
-        private static string GetEmbeddedPackagePath(string packageName)
+        // Get the file ref from the project manifest.json
+        private static string GetEmbeddedPackagePathFromManifest(string packageName)
         {
-            var line = File.ReadLines(Directory.GetCurrentDirectory() + Path.DirectorySeparatorChar + "Packages"+ Path.DirectorySeparatorChar +"manifest.json")
-                .FirstOrDefault(l => l.Contains(packageName));
-            return line.Split(char.Parse(":"))[2].Replace("\"","").Replace(",","").Remove(0,2);
+            var line = File.ReadLines(
+                    Directory.GetCurrentDirectory() + Path.DirectorySeparatorChar + 
+                    "Packages"+ Path.DirectorySeparatorChar +"manifest.json"
+                    ).FirstOrDefault(l => l.Contains(packageName));
+
+            if (line == null)
+            {
+                Debug.LogError("Dev Package is not yet file: referenced in manifest");
+                return "";
+            }
+            
+            var value =  line.Split(':')[2];
+            return  value.Replace("\"", "").Replace(",","")
+                .Remove(0,2);
+            
         }
 
         private static string GetPackageName()
@@ -55,7 +75,7 @@ namespace GitMyPackage
 
             if (packageName == "")
             {
-                Debug.Log(
+                Debug.LogError(
                     "No Package is Selected.  Make sure to select the Packages folder in the Project Window and then select the package folder in right column of the Project Window (Two column view)");
             }
             return packageName;
@@ -70,6 +90,12 @@ namespace GitMyPackage
             var jsonString = File.ReadAllText(path);
             var packageJson = JsonUtility.FromJson<PackageManifest>(jsonString);
             return packageJson;
+        }
+
+        public static void RemoveCheckout(PackageManifest packageJson)
+        {
+            //TODO: Delete package automatically
+            Debug.LogError("Could not cleanup clone.  Please manually delete from PackageSource folder in your project.");
         }
     }
 }

@@ -42,8 +42,7 @@ namespace GitMyPackage
 
         public static bool CheckoutRevision(PackageManifest packageJson, string branchName)
         {
-            var gitProcess = GetGitProcess();
-            Directory.SetCurrentDirectory(GetEmbeddedPackagePath(packageJson));
+            var gitProcess = GetGitProcess(GetEmbeddedPackagePath(packageJson));
             gitProcess.Arguments = "checkout -b " + branchName + " " + packageJson.repository.revision;
             var result = RunGitProcess(gitProcess);
             
@@ -54,9 +53,9 @@ namespace GitMyPackage
         public static bool ClonePackage(PackageManifest packageJson)
         {
 
-            var gitProcess = GetGitProcess();
+            
             Directory.CreateDirectory(PackageSourceDir);
-            Directory.SetCurrentDirectory(PackageSourceDir);
+            var gitProcess = GetGitProcess(PackageSourceDir);
 
             var sshUrl = packageJson.repository.url.Replace("https://", "git@").Replace(".com/", ".com:");
             gitProcess.Arguments = "clone --recursive " + sshUrl;
@@ -67,7 +66,7 @@ namespace GitMyPackage
             return false;
         }
 
-        private static ProcessStartInfo GetGitProcess()
+        private static ProcessStartInfo GetGitProcess(string workingDir)
         {
             var gitProcess = new ProcessStartInfo();
             gitProcess.EnvironmentVariables["PATH"] = "/usr/local/bin:" + Environment.GetEnvironmentVariable("PATH");
@@ -75,6 +74,7 @@ namespace GitMyPackage
             gitProcess.UseShellExecute = false;
             gitProcess.RedirectStandardOutput = true;
             gitProcess.RedirectStandardError = true;
+            gitProcess.WorkingDirectory = workingDir;
 
             return gitProcess;
         }
@@ -92,49 +92,57 @@ namespace GitMyPackage
             {
                 if (process != null)
                 {
-                    using (var reader = process.StandardError)
-                    {
-                        result = reader.ReadToEnd();
+                    // using (var reader = process.StandardError)
+                    // {
+                    //     result = reader.ReadToEnd();
+                    //
+                    // }
+                    string output = process.StandardOutput.ReadToEnd();
+                    Console.WriteLine(output);
+                    string err = process.StandardError.ReadToEnd();
 
-                    }
-                    if (process.ExitCode != 0)
-                    {
-                        Debug.Log(process.StandardError.CurrentEncoding);
-
-                    }
+                    process.WaitForExit();
                 }
-                Directory.SetCurrentDirectory(CurrentDir);
+                
+
+                
+                //Directory.SetCurrentDirectory(CurrentDir);
                 return result;
             }
         }
 
         public static bool CommitChange(string comment, string pathToPackage)
         {
-            var gitProcess = GetGitProcess();
-
-            Directory.SetCurrentDirectory(pathToPackage);
+            var gitProcess = GetGitProcess(pathToPackage);
 
             gitProcess.Arguments = "add . ";
             var addStatus = RunGitProcess(gitProcess);
-            if (addStatus == "") return false;
+            //if (addStatus == "") return false;
             
             gitProcess.Arguments = $"commit -m \"{comment}\"";
             var commitStatus = RunGitProcess(gitProcess);
-            if (commitStatus == "") return false;
-            
-            gitProcess.Arguments = $"push";
-            var pushStatus = RunGitProcess(gitProcess);
 
-            return pushStatus != "";
+            //return commitStatus != "";
+            return true;
 
         }
 
         public static bool PushBranch(PackageManifest packageJson, string branchName)
         {
-            var gitProcess = GetGitProcess();
-            Directory.SetCurrentDirectory(GetEmbeddedPackagePath(packageJson));
-            
+            var gitProcess = GetGitProcess(GetEmbeddedPackagePath(packageJson));
+
             gitProcess.Arguments = $"push -u origin {branchName}";
+
+            var addStatus = RunGitProcess(gitProcess);
+
+            return addStatus != "";
+        }
+        
+        public static bool PushChange(string embeddedPackagePath)
+        {
+            var gitProcess = GetGitProcess(embeddedPackagePath);
+
+            gitProcess.Arguments = $"push";
 
             var addStatus = RunGitProcess(gitProcess);
 
