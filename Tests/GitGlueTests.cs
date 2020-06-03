@@ -12,14 +12,14 @@ namespace Tests
         [Test]
         public void NewTestScriptSimplePasses()
         {
-            Assert.True;
+            Assert.IsTrue(true);
         }
 
         [UnityTest]
         public IEnumerator NewTestScriptWithEnumeratorPasses()
         {
             yield return null;
-            Assert.True;
+            Assert.IsTrue(true);
         }
     }
 }
