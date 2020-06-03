@@ -1,12 +1,8 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 
 namespace GitMyPackage
 {
-
-
     public class GitMyPackageWindow : EditorWindow
     {
         public bool cloned;
@@ -15,7 +11,6 @@ namespace GitMyPackage
         public bool commit;
         private string _comment;
         public string pathToPackage;
-        private bool done;
 
         private void OnGUI()
         {
@@ -30,7 +25,7 @@ namespace GitMyPackage
 
                     GitGlue.PushBranch(packageJson, _branchName);
 
-                    GitGlue.EmbedPackage(packageJson);
+                    EditorUtils.EmbedPackage(packageJson);
                     cloned = false;
                     Close();
                 }
@@ -59,8 +54,6 @@ namespace GitMyPackage
                     commit = false;
                     Close();
                 };
-
-
             }
         }
     }
