@@ -1,6 +1,6 @@
 {
     "name": "com.unity.git-my-package",
-    "version": "0.1.0-preview",
+    "version": "0.1.1-preview",
     "displayName": "Git My Package",
     "description": "Adds ablity to clone the package at its published revision so that you can edit it as an embedded package.",
     "unity": "2019.3",
